@@ -77,6 +77,25 @@ class TestPlotlyBuilder:
         assert "yaxis" in layout
         assert "yaxis2" in layout
 
+    def test_build_line_same_x_and_y(self, data_frame):
+        """The Y column may be the same as the X column (e.g. both default to
+        the first datastore column). This must not crash with a duplicate
+        column error from Plotly.
+        """
+        result = utils.build_chart_for_data(
+            {
+                "type": "Line",
+                "engine": "plotly",
+                "x": "name",
+                "y": ["name"],
+            },
+            data_frame,
+        )
+
+        assert result
+        assert "data" in result
+        assert "layout" in result
+
     def test_build_scatter(self, data_frame):
         result = utils.build_chart_for_data(
             {

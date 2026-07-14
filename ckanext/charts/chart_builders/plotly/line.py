@@ -132,8 +132,14 @@ class PlotlyLineBuilder(PlotlyBuilder):
 
             return df
 
-        # Remove unnecessary columns and duplicates from x-axis column
-        df = self.df[[x_col, column_name]]
+        # Remove unnecessary columns and duplicates from x-axis column.
+        # When the Y column is the same as the X column (e.g. both default to
+        # the first datastore column on a freshly added view), selecting
+        # ``[x_col, column_name]`` would build a DataFrame with two
+        # identically-named columns, which Plotly rejects with "Expected
+        # unique column names". Select the column only once in that case.
+        columns = [x_col] if column_name == x_col else [x_col, column_name]
+        df = self.df[columns]
         df.drop_duplicates(subset=[x_col], inplace=True)
 
         if self.settings.get("split_data") and self._is_column_datetime(x_col):
