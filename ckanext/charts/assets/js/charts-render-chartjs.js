@@ -29,7 +29,7 @@ ckan.module("charts-render-chartjs", function($, _) {
 
             this.options.config.id = this.chartId;
 
-            var chart = new Chart(this.el[0].getContext("2d"), this.options.config)
+            var chart = new window.charts_chartjs_lib(this.el[0].getContext("2d"), this.options.config)
 
             window.charts_chartjs[chart.id] = chart;
 
@@ -45,7 +45,7 @@ ckan.module("charts-render-chartjs", function($, _) {
          * transparent.
          */
         _registerChartBackground: function() {
-            Chart.register({
+            window.charts_chartjs_lib.register({
                 id: 'chartjs-chart-background',
                 beforeDraw: (chart, args, opts) => {
                     const ctx = chart.canvas.getContext('2d');

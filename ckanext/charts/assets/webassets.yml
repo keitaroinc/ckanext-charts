@@ -9,6 +9,9 @@ chartjs:
     - js/vendor/chartjs-plugin-zoom.min.js
     ##############################
 
+    # must come straight after the vendor files, before anything else can
+    # overwrite the `window.Chart` global
+    - js/charts-chartjs-global.js
     - js/charts-render-chartjs.js
   extra:
     preload:
