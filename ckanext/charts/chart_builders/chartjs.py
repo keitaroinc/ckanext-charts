@@ -259,10 +259,28 @@ class ChartJSLineBuilder(ChartJsBuilder):
         """
         # Remove unnecessary columns and duplicates from x-axis column
         self.df = self.df[[self.settings["x"], self.settings["y"][0]]]
+
+        # Drop rows with no usable date. Left in place they parse to NaT, which
+        # makes `_year_` a float column: the pivot then adds a `NaN` series and
+        # labels the rest `1984.0` instead of `1984`. The `NaN` label is
+        # serialised as a bare `NaN` token, which browsers reject when parsing
+        # the chart JSON.
+        self.df[self.settings["x"]] = pd.to_datetime(
+            self.df[self.settings["x"]],
+            errors="coerce",
+        )
+        self.df = self.df.dropna(subset=[self.settings["x"]])
+
+        if self.df.empty:
+            # No parseable dates at all: there is nothing to split by. Leave
+            # the Y settings untouched so the caller still gets a valid (empty)
+            # series to render rather than an IndexError on `settings["y"][0]`.
+            return
+
         self.df.drop_duplicates(subset=[self.settings["x"]], inplace=True)
         # Create a new column with years on the base of the original
         # datetime column
-        self.df["_year_"] = pd.to_datetime(self.df[self.settings["x"]]).dt.year
+        self.df["_year_"] = self.df[self.settings["x"]].dt.year
 
         # Reshape dataframe to be readable by ChartJS
         self.df = self.df.pivot(
@@ -362,8 +380,11 @@ class ChartJSLineBuilder(ChartJsBuilder):
     def to_json(self) -> str:
         try:
             dates = pd.to_datetime(self.df[self.settings["x"]], unit="ns")
+            # `dropna` guards against rows with no date: they strftime to NaN,
+            # which json.dumps writes as a bare `NaN` token that browsers
+            # refuse to parse, taking the whole chart config down with it.
             self.settings["years"] = list(
-                dates.dt.strftime(self.YEAR_DATETIME_FORMAT).unique(),
+                dates.dt.strftime(self.YEAR_DATETIME_FORMAT).dropna().unique(),
             )
         except (ParserError, ValueError):
             self.settings["years"] = []

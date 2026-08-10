@@ -28,11 +28,29 @@ class PlotlyLineBuilder(PlotlyBuilder):
         """
         # Remove unnecessary columns and duplicates from x-axis column
         self.df = self.df[[self.settings["x"], self.settings["y"][0]]]
+
+        # Drop rows with no usable date. Left in place they parse to NaT, which
+        # makes `_year_` a float column: the pivot then labels every series
+        # `1984.0` instead of `1984` and adds a `NaN` bucket, so the year
+        # filter in `_prepare_data` ("1984" == str(1984.0)) never matches and
+        # every trace comes out empty.
+        self.df[self.settings["x"]] = pd.to_datetime(
+            self.df[self.settings["x"]],
+            errors="coerce",
+        )
+        self.df = self.df.dropna(subset=[self.settings["x"]])
+
+        if self.df.empty:
+            # No parseable dates at all: there is nothing to split by. Leave
+            # the Y settings untouched so the caller still gets a valid (empty)
+            # series to render rather than an IndexError on `settings["y"][0]`.
+            return
+
         self.df.drop_duplicates(subset=[self.settings["x"]], inplace=True)
 
         # Create a new column with years on the base of the original
         # datetime column
-        self.df["_year_"] = pd.to_datetime(self.df[self.settings["x"]]).dt.year
+        self.df["_year_"] = self.df[self.settings["x"]].dt.year
 
         # Reshape dataframe to be readable by Plotly
         self.df = self.df.pivot(
