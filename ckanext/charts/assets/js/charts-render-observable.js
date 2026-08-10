@@ -1,6 +1,19 @@
 ckan.module("charts-render-observable", function($, _) {
     "use strict";
 
+    // Plot draws a tick for every value of a band/point scale and never thins or
+    // rotates them, so an ordinal axis with many categories overlaps itself.
+    // These constants approximate the metrics of the tick font (10px sans-serif)
+    // to decide when the labels stop fitting side by side.
+    var TICK_CHAR_WIDTH = 6.5;
+    var TICK_LINE_HEIGHT = 12;
+    var TICK_GAP = 6;
+    var TICK_ROTATE = -45;
+    var DEFAULT_PLOT_WIDTH = 640;
+    var DEFAULT_PLOT_HEIGHT = 400;
+    var DEFAULT_MARGIN_X = 60;
+    var DEFAULT_MARGIN_BOTTOM = 30;
+
     return {
         options: {
             config: null,
@@ -20,6 +33,8 @@ ckan.module("charts-render-observable", function($, _) {
             }
 
             var plot;
+
+            this._fitOrdinalXAxis(this.options.config);
 
             switch (this.options.config.type) {
                 case "bar":
@@ -48,6 +63,105 @@ ckan.module("charts-render-observable", function($, _) {
             this.chartControl.find("#makeSnapshot").on(
                 "click", (e) => this._makeSnapshot(e, this.chartId)
             );
+        },
+
+        /**
+         * Collect the x scale domain in the order Plot builds it: the distinct
+         * values of the x column, keeping the order they appear in the data.
+         */
+        _xDomain: function(config) {
+            var field = config.settings.x;
+            var seen = {};
+            var domain = [];
+
+            (config.data || []).forEach(function(row) {
+                var value = row[field];
+                var key = String(value);
+
+                if (!seen.hasOwnProperty(key)) {
+                    seen[key] = true;
+                    domain.push(value);
+                }
+            });
+
+            return domain;
+        },
+
+        /**
+         * Whether the x axis ends up as a band/point scale, i.e. one tick per
+         * category with no automatic thinning.
+         */
+        _hasOrdinalXAxis: function(config, domain) {
+            if (!config.plot || !config.plot.x || config.plot.x.type) {
+                return false;
+            }
+
+            // barY always puts the categories on the x axis
+            if (config.type === "bar") {
+                return true;
+            }
+
+            if (config.type !== "line" && config.type !== "scatter") {
+                return false;
+            }
+
+            return domain.every(function(value) {
+                return typeof value !== "number";
+            });
+        },
+
+        /**
+         * Rotate the x axis tick labels when there are too many categories to
+         * print them horizontally, and drop every n-th one when even rotated
+         * labels would not stand apart.
+         */
+        _fitOrdinalXAxis: function(config) {
+            if (!config.settings || !config.settings.x) {
+                return;
+            }
+
+            var domain = this._xDomain(config);
+
+            if (domain.length < 2 || !this._hasOrdinalXAxis(config, domain)) {
+                return;
+            }
+
+            var labels = domain.map(String);
+
+            // Values of an ordinal axis are identifiers rather than measured
+            // quantities, so print them verbatim instead of letting Plot group
+            // the digits of numbers (a year 1995 would read as "1,995").
+            config.plot.x.tickFormat = String;
+
+            var width = config.plot.width || DEFAULT_PLOT_WIDTH;
+            var band = (width - DEFAULT_MARGIN_X) / labels.length;
+            var labelWidth = TICK_CHAR_WIDTH * labels.reduce(function(longest, label) {
+                return Math.max(longest, label.length);
+            }, 0);
+
+            if (labelWidth + TICK_GAP <= band) {
+                return;
+            }
+
+            config.plot.x.tickRotate = TICK_ROTATE;
+
+            // A label rotated by 45 degrees reaches labelWidth * sin(45) below
+            // the axis, so the bottom margin has to grow by that much. Give the
+            // plot the same extra height to keep the drawing area intact.
+            var rotatedHeight = Math.ceil(labelWidth * Math.SQRT1_2);
+
+            config.plot.marginBottom = rotatedHeight + DEFAULT_MARGIN_BOTTOM;
+            config.plot.height = (config.plot.height || DEFAULT_PLOT_HEIGHT) + rotatedHeight;
+
+            // Rotating buys vertical room, not horizontal: rotated labels still
+            // need a line height of space between them.
+            var step = Math.ceil(TICK_LINE_HEIGHT / band);
+
+            if (step > 1) {
+                config.plot.x.ticks = domain.filter(function(_value, index) {
+                    return index % step === 0;
+                });
+            }
         },
 
         _makeSnapshot: function(event, chartId) {
