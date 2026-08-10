@@ -50,6 +50,7 @@ class ChartsViewPlugin(imp.ResourceController, imp.SignalController, p.Singleton
         return {
             "name": "charts_view",
             "title": tk._("Chart"),
+            "default_title": tk._("Chart"),
             "schema": settings_schema(),
             "icon": "chart-line",
             "iframed": False,
@@ -162,6 +163,7 @@ class ChartsBuilderViewPlugin(p.SingletonPlugin):
         return {
             "name": "charts_builder_view",
             "title": tk._("Chart Builder"),
+            "default_title": tk._("Chart Builder"),
             "schema": {},
             "icon": "chart-area",
             "iframed": False,
