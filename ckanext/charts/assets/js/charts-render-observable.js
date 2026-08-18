@@ -13,6 +13,13 @@ ckan.module("charts-render-observable", function($, _) {
     var DEFAULT_PLOT_HEIGHT = 400;
     var DEFAULT_MARGIN_X = 60;
     var DEFAULT_MARGIN_BOTTOM = 30;
+    var DEFAULT_MARGIN_LEFT = 40;
+    // The tick line plus the gap Plot keeps between it and the tick label
+    var TICK_OFFSET = 9;
+    // A rotated axis label takes a line of text and sits 3px off the edge
+    var AXIS_LABEL_ROOM = TICK_LINE_HEIGHT + 3;
+    // Long categories may not push the drawing area off the plot
+    var MAX_MARGIN_LEFT_RATIO = 1 / 3;
 
     return {
         options: {
@@ -35,6 +42,7 @@ ckan.module("charts-render-observable", function($, _) {
             var plot;
 
             this._fitOrdinalXAxis(this.options.config);
+            this._fitOrdinalYAxis(this.options.config);
 
             switch (this.options.config.type) {
                 case "bar":
@@ -66,11 +74,10 @@ ckan.module("charts-render-observable", function($, _) {
         },
 
         /**
-         * Collect the x scale domain in the order Plot builds it: the distinct
-         * values of the x column, keeping the order they appear in the data.
+         * Collect a scale domain in the order Plot builds it: the distinct
+         * values of the column, keeping the order they appear in the data.
          */
-        _xDomain: function(config) {
-            var field = config.settings.x;
+        _domain: function(config, field) {
             var seen = {};
             var domain = [];
 
@@ -120,7 +127,7 @@ ckan.module("charts-render-observable", function($, _) {
                 return;
             }
 
-            var domain = this._xDomain(config);
+            var domain = this._domain(config, config.settings.x);
 
             if (domain.length < 2 || !this._hasOrdinalXAxis(config, domain)) {
                 return;
@@ -161,6 +168,38 @@ ckan.module("charts-render-observable", function($, _) {
                 config.plot.x.ticks = domain.filter(function(_value, index) {
                     return index % step === 0;
                 });
+            }
+        },
+
+        /**
+         * Widen the left margin of a horizontal bar chart so that its tick
+         * labels fit.
+         *
+         * A horizontal bar chart carries its categories on the y axis, where
+         * Plot centers the axis label and rotates it against the left edge.
+         * The margin keeps its default width no matter how wide the tick
+         * labels grow, so anything longer than a few characters runs into
+         * that label.
+         */
+        _fitOrdinalYAxis: function(config) {
+            if (config.type !== "horizontal-bar" || !config.settings || !config.settings.y) {
+                return;
+            }
+
+            var labels = this._domain(config, config.settings.y).map(String);
+            var labelWidth = TICK_CHAR_WIDTH * labels.reduce(function(longest, label) {
+                return Math.max(longest, label.length);
+            }, 0);
+
+            var width = config.plot.width || DEFAULT_PLOT_WIDTH;
+            var axisLabelRoom = config.plot.y.label ? AXIS_LABEL_ROOM : 0;
+            var margin = Math.min(
+                Math.ceil(labelWidth) + TICK_OFFSET + axisLabelRoom,
+                Math.floor(width * MAX_MARGIN_LEFT_RATIO)
+            );
+
+            if (margin > (config.plot.marginLeft || DEFAULT_MARGIN_LEFT)) {
+                config.plot.marginLeft = margin;
             }
         },
 

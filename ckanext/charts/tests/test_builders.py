@@ -422,6 +422,26 @@ class TestObservableBuilder:
         assert result["plot"]["y"]["tickFormat"] == "d"
         assert "tickFormat" not in result["plot"]["x"]
 
+    def test_horizontal_bar_with_skipped_null_categories(self):
+        """Skipping the null values leaves the category column holding the
+        string `null`, which the numeric format would print as `NaN`."""
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Horizontal Bar",
+                    "engine": "observable",
+                    "x": "amount",
+                    "y": "Year",
+                    "skip_null_values": True,
+                },
+                pd.DataFrame(
+                    {"Year": [2000.0, None], "amount": [1.0, 2.0]},
+                ),
+            ),
+        )
+
+        assert "tickFormat" not in result["plot"]["y"]
+
     def test_build_line(self, data_frame):
         result = utils.build_chart_for_data(
             {

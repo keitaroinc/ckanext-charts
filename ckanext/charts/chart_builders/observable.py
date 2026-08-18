@@ -39,6 +39,10 @@ class ObservableBuilder(BaseChartBuilder):
     def _is_whole_number_column(self, column_name: str) -> bool:
         """Check if the column holds numbers without a fractional part.
 
+        Ask the prepared dataframe rather than the incoming one: filling the
+        missing values of a column with `null` leaves it holding strings, and
+        those have to keep the default format.
+
         Args:
             column_name (str): name of the column to check
 
@@ -122,10 +126,6 @@ class ObservableBarBuilder(ObservableBuilder):
         Returns:
             Bar chart data dictionary
         """
-        # Check before the NA values of the dataframe are filled, as that may
-        # turn the category column into a non-numeric one
-        whole_number_x = self._is_whole_number_column(self.settings["x"])
-
         # Fill NA/NaN values in the incoming data/dataframe
         if self.settings.get("skip_null_values"):
             self.df = self.df.dropna(subset=self.settings["y"]).fillna("null")
@@ -143,7 +143,7 @@ class ObservableBarBuilder(ObservableBuilder):
         # Set additional chart settings
         data["plot"]["y"]["grid"] = True
 
-        if whole_number_x:
+        if self._is_whole_number_column(self.settings["x"]):
             self._print_ticks_verbatim(data, "x")
 
         return data
@@ -198,11 +198,6 @@ class ObservableHorizontalBarBuilder(ObservableBuilder):
         Returns:
             Horizontal bar chart data dictionary
         """
-        # A horizontal bar chart carries its categories on the y axis. Check
-        # before the NA values of the dataframe are filled, as that may turn
-        # the category column into a non-numeric one
-        whole_number_y = self._is_whole_number_column(self.settings["y"])
-
         # Fill NA/NaN values in the incoming data/dataframe
         if self.settings.get("skip_null_values"):
             self.df = self.df.dropna(subset=self.settings["x"]).fillna("null")
@@ -221,7 +216,7 @@ class ObservableHorizontalBarBuilder(ObservableBuilder):
         data["plot"]["height"] = self.DEFAULT_PLOT_HEIGHT
         data["plot"]["x"]["grid"] = True
 
-        if whole_number_y:
+        if self._is_whole_number_column(self.settings["y"]):
             self._print_ticks_verbatim(data, "y")
 
         return data
@@ -279,10 +274,6 @@ class ObservableLineBuilder(ObservableBuilder):
         Returns:
             Line chart data dictionary
         """
-        # Check before the dataframe is reshaped and its NA values are filled,
-        # as both may turn the x-axis column into a non-numeric one
-        whole_number_x = self._is_whole_number_column(self.settings["x"])
-
         if self._is_column_datetime(self.settings["x"]):
             # Remove unnecessary columns and duplicates from x-axis column
             self.df = self.df[[self.settings["x"], self.settings["y"][0]]]
@@ -352,7 +343,7 @@ class ObservableLineBuilder(ObservableBuilder):
                 },
             )
 
-            if whole_number_x:
+            if self._is_whole_number_column(self.settings["x"]):
                 self._print_ticks_verbatim(data, "x")
 
         return data
@@ -497,10 +488,6 @@ class ObservableScatterBuilder(ObservableBuilder):
         Returns:
             Scatter chart data dictionary
         """
-        # Check before the NA values of the dataframe are filled, as that may
-        # turn the category column into a non-numeric one
-        whole_number_x = self._is_whole_number_column(self.settings["x"])
-
         # Fill NA/NaN values in the incoming data/dataframe
         if self.settings.get("skip_null_values"):
             self.df = self.df.dropna(
@@ -523,7 +510,7 @@ class ObservableScatterBuilder(ObservableBuilder):
         data["plot"]["grid"] = True
         data["plot"]["x"]["ticks"] = self.DEFAULT_AXIS_TICKS_NUMBER
 
-        if whole_number_x:
+        if self._is_whole_number_column(self.settings["x"]):
             self._print_ticks_verbatim(data, "x")
 
         return data
