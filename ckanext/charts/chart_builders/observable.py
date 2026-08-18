@@ -45,12 +45,31 @@ class ObservableBuilder(BaseChartBuilder):
         Returns:
             True if all the numbers of the column are whole, otherwise - False
         """
-        column = self.df[column_name]
+        # A setting does not have to name a column of the dataframe, e.g. the
+        # y axis of a chart with multiple y columns holds a list of names
+        column = self.df.get(column_name)
+
+        if not isinstance(column, pd.Series):
+            return False
 
         if not pd.api.types.is_numeric_dtype(column):
             return False
 
         return bool((column.dropna() % 1 == 0).all())
+
+    def _print_ticks_verbatim(self, data: dict[str, Any], axis: str) -> None:
+        """Print the whole numbers of the given axis without a group separator.
+
+        Plot groups the digits of numeric ticks, so a year 2000 would read as
+        `2,000`. Numbers of a category axis are identifiers rather than
+        measured quantities, so print them as they are. The axis carrying the
+        values keeps the separator that makes big numbers readable.
+
+        Args:
+            data (dict[str, Any]): settings data dictionary
+            axis (str): name of the axis, either `x` or `y`
+        """
+        data["plot"][axis]["tickFormat"] = "d"
 
     def _set_chart_global_settings(self, data: dict[str, Any]) -> dict[str, Any]:
         """Set chart's global settings and plot configs.
@@ -103,6 +122,10 @@ class ObservableBarBuilder(ObservableBuilder):
         Returns:
             Bar chart data dictionary
         """
+        # Check before the NA values of the dataframe are filled, as that may
+        # turn the category column into a non-numeric one
+        whole_number_x = self._is_whole_number_column(self.settings["x"])
+
         # Fill NA/NaN values in the incoming data/dataframe
         if self.settings.get("skip_null_values"):
             self.df = self.df.dropna(subset=self.settings["y"]).fillna("null")
@@ -119,6 +142,9 @@ class ObservableBarBuilder(ObservableBuilder):
 
         # Set additional chart settings
         data["plot"]["y"]["grid"] = True
+
+        if whole_number_x:
+            self._print_ticks_verbatim(data, "x")
 
         return data
 
@@ -172,6 +198,11 @@ class ObservableHorizontalBarBuilder(ObservableBuilder):
         Returns:
             Horizontal bar chart data dictionary
         """
+        # A horizontal bar chart carries its categories on the y axis. Check
+        # before the NA values of the dataframe are filled, as that may turn
+        # the category column into a non-numeric one
+        whole_number_y = self._is_whole_number_column(self.settings["y"])
+
         # Fill NA/NaN values in the incoming data/dataframe
         if self.settings.get("skip_null_values"):
             self.df = self.df.dropna(subset=self.settings["x"]).fillna("null")
@@ -189,6 +220,9 @@ class ObservableHorizontalBarBuilder(ObservableBuilder):
         # Set additional chart settings
         data["plot"]["height"] = self.DEFAULT_PLOT_HEIGHT
         data["plot"]["x"]["grid"] = True
+
+        if whole_number_y:
+            self._print_ticks_verbatim(data, "y")
 
         return data
 
@@ -318,11 +352,8 @@ class ObservableLineBuilder(ObservableBuilder):
                 },
             )
 
-            # Plot groups the digits of a quantitative axis, so a year 2000
-            # would read as `2,000`. Whole numbers are identifiers rather than
-            # measured quantities more often than not, print them verbatim.
             if whole_number_x:
-                data["plot"]["x"]["tickFormat"] = "d"
+                self._print_ticks_verbatim(data, "x")
 
         return data
 
@@ -466,6 +497,10 @@ class ObservableScatterBuilder(ObservableBuilder):
         Returns:
             Scatter chart data dictionary
         """
+        # Check before the NA values of the dataframe are filled, as that may
+        # turn the category column into a non-numeric one
+        whole_number_x = self._is_whole_number_column(self.settings["x"])
+
         # Fill NA/NaN values in the incoming data/dataframe
         if self.settings.get("skip_null_values"):
             self.df = self.df.dropna(
@@ -487,6 +522,9 @@ class ObservableScatterBuilder(ObservableBuilder):
         data["settings"]["fill"] = self.settings.get("color", "blue")
         data["plot"]["grid"] = True
         data["plot"]["x"]["ticks"] = self.DEFAULT_AXIS_TICKS_NUMBER
+
+        if whole_number_x:
+            self._print_ticks_verbatim(data, "x")
 
         return data
 

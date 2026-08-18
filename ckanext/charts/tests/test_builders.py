@@ -352,6 +352,41 @@ class TestObservableBuilder:
         assert "settings" in result
         assert "bar" in result
 
+    def test_build_bar_with_numeric_x(self):
+        """Plot groups the digits of numeric ticks, so a year would read
+        as `2,000` on the category axis of a bar chart."""
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Bar",
+                    "engine": "observable",
+                    "x": "Year",
+                    "y": "amount",
+                },
+                pd.DataFrame({"Year": [2000.0, 2001.0], "amount": [1.0, 2.0]}),
+            ),
+        )
+
+        assert result["plot"]["x"]["tickFormat"] == "d"
+
+    def test_build_bar_keeps_group_separator_of_value_axis(self, data_frame):
+        """Only the category axis prints its numbers verbatim, the values
+        keep the separator that makes big numbers readable."""
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Bar",
+                    "engine": "observable",
+                    "x": "name",
+                    "y": "age",
+                },
+                data_frame,
+            ),
+        )
+
+        assert "tickFormat" not in result["plot"]["x"]
+        assert "tickFormat" not in result["plot"]["y"]
+
     def test_horizontal_bar(self, data_frame):
         result = utils.build_chart_for_data(
             {
@@ -368,6 +403,24 @@ class TestObservableBuilder:
         assert "plot" in result
         assert "settings" in result
         assert "horizontal-bar" in result
+
+    def test_horizontal_bar_with_numeric_y(self):
+        """A horizontal bar chart carries its categories on the y axis, so
+        that is the axis whose years must not read as `2,000`."""
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Horizontal Bar",
+                    "engine": "observable",
+                    "x": "amount",
+                    "y": "Year",
+                },
+                pd.DataFrame({"Year": [2000.0, 2001.0], "amount": [1.0, 2.0]}),
+            ),
+        )
+
+        assert result["plot"]["y"]["tickFormat"] == "d"
+        assert "tickFormat" not in result["plot"]["x"]
 
     def test_build_line(self, data_frame):
         result = utils.build_chart_for_data(
@@ -458,6 +511,22 @@ class TestObservableBuilder:
         assert "plot" in result
         assert "settings" in result
         assert "scatter" in result
+
+    def test_build_scatter_with_numeric_x(self):
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Scatter",
+                    "engine": "observable",
+                    "x": "Year",
+                    "y": "amount",
+                    "size_max": 10,
+                },
+                pd.DataFrame({"Year": [2000.0, 2001.0], "amount": [1.0, 2.0]}),
+            ),
+        )
+
+        assert result["plot"]["x"]["tickFormat"] == "d"
 
     def test_not_supported_chart_type(self, data_frame):
         with pytest.raises(
