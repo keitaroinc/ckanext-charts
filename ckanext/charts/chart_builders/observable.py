@@ -36,6 +36,22 @@ class ObservableBuilder(BaseChartBuilder):
             ObservableScatterForm,
         ]
 
+    def _is_whole_number_column(self, column_name: str) -> bool:
+        """Check if the column holds numbers without a fractional part.
+
+        Args:
+            column_name (str): name of the column to check
+
+        Returns:
+            True if all the numbers of the column are whole, otherwise - False
+        """
+        column = self.df[column_name]
+
+        if not pd.api.types.is_numeric_dtype(column):
+            return False
+
+        return bool((column.dropna() % 1 == 0).all())
+
     def _set_chart_global_settings(self, data: dict[str, Any]) -> dict[str, Any]:
         """Set chart's global settings and plot configs.
 
@@ -229,6 +245,10 @@ class ObservableLineBuilder(ObservableBuilder):
         Returns:
             Line chart data dictionary
         """
+        # Check before the dataframe is reshaped and its NA values are filled,
+        # as both may turn the x-axis column into a non-numeric one
+        whole_number_x = self._is_whole_number_column(self.settings["x"])
+
         if self._is_column_datetime(self.settings["x"]):
             # Remove unnecessary columns and duplicates from x-axis column
             self.df = self.df[[self.settings["x"], self.settings["y"][0]]]
@@ -297,6 +317,12 @@ class ObservableLineBuilder(ObservableBuilder):
                     "marker": True,
                 },
             )
+
+            # Plot groups the digits of a quantitative axis, so a year 2000
+            # would read as `2,000`. Whole numbers are identifiers rather than
+            # measured quantities more often than not, print them verbatim.
+            if whole_number_x:
+                data["plot"]["x"]["tickFormat"] = "d"
 
         return data
 

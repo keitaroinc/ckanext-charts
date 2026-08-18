@@ -183,8 +183,20 @@ class BaseChartBuilder(ABC):
         Returns:
             True if values can be converted to datetime type, otherwise - False
         """
+        column = self.df[column_name]
+
+        if pd.api.types.is_datetime64_any_dtype(column):
+            return True
+
+        # A numeric column carries measurements, not dates, even though pandas
+        # happily turns 2000 into a timestamp. Reporting such a column as
+        # datetime puts a date scale under plain numbers, e.g. a `Year` column
+        # would be drawn as milliseconds since the epoch.
+        if pd.api.types.is_numeric_dtype(column):
+            return False
+
         try:
-            pd.to_datetime(self.df[column_name], format=self.DEFAULT_DATETIME_FORMAT)
+            pd.to_datetime(column, format=self.DEFAULT_DATETIME_FORMAT)
         except (ValueError, TypeError):
             return False
         return True

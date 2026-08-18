@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+import pandas as pd
 import pytest
 
 from ckanext.charts import exception, utils
@@ -401,6 +402,28 @@ class TestObservableBuilder:
         assert "plot" in result
         assert "settings" in result
         assert "line" in result
+
+    def test_build_line_with_numeric_x(self):
+        """A numeric column such as `Year` holds plain numbers, not dates.
+
+        On a `utc` scale Plot reads those numbers as milliseconds since the
+        epoch, so every year would collapse onto 1970-01-01.
+        """
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Line",
+                    "engine": "observable",
+                    "x": "Year",
+                    "y": ["amount"],
+                },
+                pd.DataFrame({"Year": [2000.0, 2001.0], "amount": [1.0, 2.0]}),
+            ),
+        )
+
+        assert "type" not in result["plot"]["x"]
+        assert result["plot"]["x"]["tickFormat"] == "d"
+        assert [row["Year"] for row in result["data"]] == [2000.0, 2001.0]
 
     def test_build_pie(self, data_frame):
         result = utils.build_chart_for_data(
