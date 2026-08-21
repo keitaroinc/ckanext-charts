@@ -37,6 +37,18 @@ def get_available_chart_engines_options() -> list[dict[str, str]]:
     return [{"value": engine, "text": engine} for engine in get_chart_engines()]
 
 
+def charts_is_engine_enabled(engine: str) -> bool:
+    """Check if the given chart engine is enabled.
+
+    Args:
+        engine: Chart engine name
+
+    Returns:
+        bool: True if the engine is available, False if it is disabled.
+    """
+    return engine in get_chart_engines()
+
+
 def charts_include_htmx_asset() -> bool:
     """Checks if the HTMX asset should be included.
 

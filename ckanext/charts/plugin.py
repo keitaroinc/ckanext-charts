@@ -12,7 +12,7 @@ from ckan.common import CKANConfig
 from ckan.config.declaration import Declaration, Key
 
 from ckanext.charts import cache, const, exception, utils
-from ckanext.charts.chart_builders import DEFAULT_CHART_FORM
+from ckanext.charts.chart_builders import DEFAULT_CHART_FORM, get_chart_engines
 from ckanext.charts.logic.schema import settings_schema
 from ckanext.charts import implementations as imp
 
@@ -93,6 +93,14 @@ class ChartsViewPlugin(imp.ResourceController, imp.SignalController, p.Singleton
             )
         except Exception as e:  # noqa: BLE001 # I know...
             data["error_msg"] = e
+            return data
+
+        engine = settings.get("engine")
+
+        if engine and engine not in get_chart_engines():
+            data["error_msg"] = tk._(
+                "The {engine} chart engine is disabled",
+            ).format(engine=engine)
             return data
 
         # view create or edit

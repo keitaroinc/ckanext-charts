@@ -4,5 +4,8 @@ Each engine consists of two classes - chart builder and form builder. The chart 
 
 The form builder is responsible for generating a form that allows users to configure the chart from the UI.
 
+Any of these engines can be excluded from the chart and chart builder views with the
+[`ckanext.charts.disabled_engines`](../configuration.md) configuration option.
+
 Also, you can implement support of a chart library of your choice by creating a custom chart engine. Read more about it  [here](./custom.md).
 

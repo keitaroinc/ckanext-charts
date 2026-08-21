@@ -1,9 +1,10 @@
 {% import "macros/form.html" as form %}
 
-{% asset "charts/plotly" %}
-{% asset "charts/chartjs" %}
-{% asset "charts/observable" %}
-{% asset "charts/echarts" %}
+{# only load the libraries of the engines that are enabled #}
+{% if h.charts_is_engine_enabled("plotly") %}{% asset "charts/plotly" %}{% endif %}
+{% if h.charts_is_engine_enabled("chartjs") %}{% asset "charts/chartjs" %}{% endif %}
+{% if h.charts_is_engine_enabled("observable") %}{% asset "charts/observable" %}{% endif %}
+{% if h.charts_is_engine_enabled("echarts") %}{% asset "charts/echarts" %}{% endif %}
 
 {# Global styles for all charts #}
 {% asset "charts/charts-css" %}

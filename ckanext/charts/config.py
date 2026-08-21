@@ -9,6 +9,7 @@ CONF_ENABLE_HTMX = "ckanext.charts.include_htmx_asset"
 CONF_REINIT_JS = "ckanext.charts.reinit_ckan_js_modules"
 CONF_ALLOW_ANON_CHART = "ckanext.charts.allow_anon_building_charts"
 CONF_MAX_FETCH_SIZE = "ckanext.charts.max_fetch_size"
+CONF_DISABLED_ENGINES = "ckanext.charts.disabled_engines"
 
 
 def get_cache_strategy() -> str:
@@ -58,3 +59,17 @@ def get_max_fetch_size() -> int:
     converted to bytes here.
     """
     return tk.asint(tk.config[CONF_MAX_FETCH_SIZE]) * 1024 * 1024
+
+
+def get_disabled_engines() -> list[str]:
+    """Get the list of chart engines excluded from the chart views.
+
+    A disabled engine is not offered in the engine dropdown and cannot be
+    used to build a chart.
+    """
+    engines = tk.config[CONF_DISABLED_ENGINES]
+
+    if isinstance(engines, str):
+        engines = engines.split()
+
+    return [engine.strip() for engine in engines if engine.strip()]

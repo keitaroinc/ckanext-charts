@@ -93,6 +93,24 @@ By default, only authenticated users can build charts. If you want to allow anon
 
 -----
 
+### Disabled engines
+
+**`ckanext.charts.disabled_engines`** [__optional__]
+
+Space-separated list of chart engines to exclude from the chart and chart builder views,
+e.g. `chartjs`. A disabled engine disappears from the engine dropdown and its JS library
+is no longer loaded on the chart form.
+
+???+ Warning
+    Charts already saved with a disabled engine stop rendering and show an error message
+    instead. Re-save them with an enabled engine to bring them back.
+
+**Type**: `list`
+
+**Default**: empty
+
+-----
+
 ## Admin config page
 
 The extension provides an admin configuration page where you can set all the listed configuration options. The admin page available only

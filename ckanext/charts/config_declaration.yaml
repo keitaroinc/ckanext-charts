@@ -50,6 +50,16 @@ groups:
         type: bool
         validators: ignore_empty boolean_validator
 
+      - key: ckanext.charts.disabled_engines
+        description: >-
+          Space-separated list of chart engines to exclude from the chart and
+          chart builder views, e.g. `chartjs`. A disabled engine disappears
+          from the engine dropdown, and views already saved with it stop
+          rendering until they are re-saved with an enabled engine.
+        editable: true
+        default: []
+        type: list
+
       - key: ckanext.charts.max_fetch_size
         description: >-
           Maximum size, in megabytes, of a file that the URL and file system

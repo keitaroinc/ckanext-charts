@@ -105,12 +105,20 @@ def charts_validate_extras(
             resource_view_id=settings.get("id"),
         )
     else:
-        builder = utils.get_chart_form_builder(
-            settings["engine"],
-            settings["type"],
-            resource_id=settings["resource_id"],
-            resource_view_id=settings.get("id"),
-        )
+        try:
+            builder = utils.get_chart_form_builder(
+                settings["engine"],
+                settings["type"],
+                resource_id=settings["resource_id"],
+                resource_view_id=settings.get("id"),
+            )
+        except NotImplementedError:
+            # the engine has been disabled since the view was saved, validate
+            # against the default form instead of failing
+            builder = DEFAULT_CHART_FORM(
+                resource_id=settings["resource_id"],
+                resource_view_id=settings.get("id"),
+            )
 
     settings, err = tk.navl_validate(
         settings,
