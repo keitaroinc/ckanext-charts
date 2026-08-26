@@ -18,11 +18,14 @@ class PlotlyScatterBuilder(PlotlyBuilder):
         return self.build_scatter_chart()
 
     def build_scatter_chart(self) -> Any:
+        # Drop the rows with nothing to plot before filling the rest in: a zero
+        # is a value of its own, so the missing values cannot be recognised by
+        # the filler they were given
+        if self.settings.get("skip_null_values"):
+            self._skip_null_rows("x", "y")
+
         # Fill NaN or NULL values in dataframe with 0
         self.df = self.df.fillna(self.DEFAULT_NAN_FILL_VALUE)
-
-        if self.settings.get("skip_null_values"):
-            self.df = self.df.loc[self.df[self.settings["y"]] != 0]
 
         # Manage with size and size_max fields' values
         size_column = self.df[self.settings.get("size", self.df.columns[0])]

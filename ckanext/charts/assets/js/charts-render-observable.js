@@ -39,38 +39,170 @@ ckan.module("charts-render-observable", function($, _) {
                 return;
             }
 
-            var plot;
+            var config = this.options.config;
 
-            this._fitOrdinalXAxis(this.options.config);
-            this._fitOrdinalYAxis(this.options.config);
+            this._fitOrdinalXAxis(config);
+            this._fitOrdinalYAxis(config);
 
-            switch (this.options.config.type) {
-                case "bar":
-                    plot = Plot.barY(this.options.config.data, this.options.config.settings).plot(this.options.config.plot);
-                    break;
-                case "horizontal-bar":
-                    plot = Plot.barX(this.options.config.data, this.options.config.settings).plot(this.options.config.plot);
-                    break;
-                case "scatter":
-                    plot = Plot.dot(this.options.config.data, this.options.config.settings).plot(this.options.config.plot);
-                    break;
-                case "line":
-                    plot = Plot.line(this.options.config.data, this.options.config.settings).plot(this.options.config.plot);
-                    break;
-                case "pie":
-                    plot = PieChart(this.options.config.data, this.options.config.settings);
-                    break;
-                default:
-                    return;
+            var plot = this._draw(config);
+
+            if (!plot) {
+                return;
             }
 
             this.el[0].replaceChildren(plot);
+
+            // The margins of the plot have to be measured on the drawn chart,
+            // so a chart whose tick labels do not fit is drawn a second time.
+            plot = this._fitValueAxis(config, plot) || plot;
 
             window.charts_obvservable[this.chartId] = plot;
 
             this.chartControl.find("#makeSnapshot").on(
                 "click", (e) => this._makeSnapshot(e, this.chartId)
             );
+        },
+
+        /**
+         * Draw the chart of the given config.
+         *
+         * Plot reports the problems it finds in the data by printing them to
+         * the console and marking the chart with a warning sign whose tooltip
+         * says no more than that, leaving anyone looking at the chart with an
+         * unexplained sign. Collect the messages and put them where the sign
+         * points.
+         */
+        _draw: function(config) {
+            var warnings = [];
+            var warn = console.warn;
+            var plot;
+
+            console.warn = function() {
+                warnings.push(Array.prototype.join.call(arguments, " "));
+                warn.apply(console, arguments);
+            };
+
+            try {
+                switch (config.type) {
+                    case "bar":
+                        plot = Plot.barY(config.data, config.settings).plot(config.plot);
+                        break;
+                    case "horizontal-bar":
+                        plot = Plot.barX(config.data, config.settings).plot(config.plot);
+                        break;
+                    case "scatter":
+                        plot = Plot.dot(config.data, config.settings).plot(config.plot);
+                        break;
+                    case "line":
+                        plot = Plot.line(config.data, config.settings).plot(config.plot);
+                        break;
+                    case "pie":
+                        plot = PieChart(config.data, config.settings);
+                        break;
+                    default:
+                        return null;
+                }
+            } finally {
+                console.warn = warn;
+            }
+
+            this._explainWarnings(plot, warnings);
+
+            return plot;
+        },
+
+        /**
+         * Replace the tooltip of the warning sign with the warnings themselves.
+         */
+        _explainWarnings: function(plot, warnings) {
+            if (!warnings.length || !plot.querySelector) {
+                return;
+            }
+
+            var title = plot.querySelector('text[font-family="initial"] > title');
+
+            if (title) {
+                title.textContent = warnings.join("\n\n");
+            }
+        },
+
+        /**
+         * Widen the left margin of the plot so that the tick labels of the
+         * value axis fit, and draw the chart again when it has to grow.
+         *
+         * Plot keeps the left margin at its default width no matter how wide
+         * the tick labels grow, and its SVG has a viewBox, so a label longer
+         * than the margin is cut off at the edge of the chart rather than
+         * spilling over it. Values in the hundreds of thousands take a label
+         * of `500,000`, which is wider than the default margin.
+         */
+        _fitValueAxis: function(config, plot) {
+            if (!config.plot) {
+                return null;
+            }
+
+            var overflow = this._yTickOverflow(plot);
+
+            if (overflow <= 0) {
+                return null;
+            }
+
+            var width = config.plot.width || DEFAULT_PLOT_WIDTH;
+            var margin = Math.min(
+                (config.plot.marginLeft || DEFAULT_MARGIN_LEFT) + Math.ceil(overflow),
+                Math.floor(width * MAX_MARGIN_LEFT_RATIO)
+            );
+
+            if (margin <= (config.plot.marginLeft || DEFAULT_MARGIN_LEFT)) {
+                return null;
+            }
+
+            config.plot.marginLeft = margin;
+
+            var refitted = this._draw(config);
+
+            if (refitted) {
+                this.el[0].replaceChildren(refitted);
+            }
+
+            return refitted;
+        },
+
+        /**
+         * How far the y axis tick labels reach past the left edge of the
+         * chart, in the coordinates of its viewBox.
+         */
+        _yTickOverflow: function(plot) {
+            if (!plot.querySelectorAll) {
+                return 0;
+            }
+
+            // Ask the labels which SVG they belong to: a chart with a colour
+            // legend comes wrapped in a figure whose swatches are SVGs of
+            // their own, standing before the one holding the chart.
+            var labels = plot.querySelectorAll('[aria-label="y-axis tick label"] text');
+            var overflow = 0;
+
+            labels.forEach(function(label) {
+                var svg = label.ownerSVGElement;
+
+                if (!svg || !svg.viewBox || !svg.viewBox.baseVal.width) {
+                    return;
+                }
+
+                var box = svg.getBoundingClientRect();
+
+                // A chart of a hidden panel has no size to measure
+                if (!box.width) {
+                    return;
+                }
+
+                var scale = svg.viewBox.baseVal.width / box.width;
+
+                overflow = Math.max(overflow, (box.left - label.getBoundingClientRect().left) * scale);
+            });
+
+            return overflow;
         },
 
         /**
@@ -129,17 +261,26 @@ ckan.module("charts-render-observable", function($, _) {
 
             var domain = this._domain(config, config.settings.x);
 
-            if (domain.length < 2 || !this._hasOrdinalXAxis(config, domain)) {
+            if (!this._hasOrdinalXAxis(config, domain)) {
                 return;
             }
 
-            var labels = domain.map(String);
+            // Name the scale Plot would infer anyway. Left to infer it, Plot
+            // warns whenever the categories look like dates - which the ones
+            // of a date column always do - and the reason for its warning sign
+            // only ever reaches the console.
+            config.plot.x.type = config.type === "bar" ? "band" : "point";
 
             // Values of an ordinal axis are identifiers rather than measured
             // quantities, so print them verbatim instead of letting Plot group
             // the digits of numbers (a year 1995 would read as "1,995").
             config.plot.x.tickFormat = String;
 
+            if (domain.length < 2) {
+                return;
+            }
+
+            var labels = domain.map(String);
             var width = config.plot.width || DEFAULT_PLOT_WIDTH;
             var band = (width - DEFAULT_MARGIN_X) / labels.length;
             var labelWidth = TICK_CHAR_WIDTH * labels.reduce(function(longest, label) {
@@ -185,6 +326,10 @@ ckan.module("charts-render-observable", function($, _) {
             if (config.type !== "horizontal-bar" || !config.settings || !config.settings.y) {
                 return;
             }
+
+            // barX always puts the categories on the y axis, so name that
+            // scale too rather than let Plot warn about date-like categories
+            config.plot.y.type = "band";
 
             var labels = this._domain(config, config.settings.y).map(String);
             var labelWidth = TICK_CHAR_WIDTH * labels.reduce(function(longest, label) {

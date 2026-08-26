@@ -128,7 +128,8 @@ class ObservableBarBuilder(ObservableBuilder):
         """
         # Fill NA/NaN values in the incoming data/dataframe
         if self.settings.get("skip_null_values"):
-            self.df = self.df.dropna(subset=self.settings["y"]).fillna("null")
+            self._skip_null_rows("x", "y")
+            self.df = self.df.fillna("null")
         else:
             self.df = self.df.fillna(self.DEFAULT_NAN_FILL_VALUE)
 
@@ -200,7 +201,8 @@ class ObservableHorizontalBarBuilder(ObservableBuilder):
         """
         # Fill NA/NaN values in the incoming data/dataframe
         if self.settings.get("skip_null_values"):
-            self.df = self.df.dropna(subset=self.settings["x"]).fillna("null")
+            self._skip_null_rows("x", "y")
+            self.df = self.df.fillna("null")
         else:
             self.df = self.df.fillna(self.DEFAULT_NAN_FILL_VALUE)
 
@@ -300,6 +302,10 @@ class ObservableLineBuilder(ObservableBuilder):
 
         # Fill NA/NaN values in the incoming data/dataframe
         if self.settings.get("skip_null_values"):
+            # Only the rows without a category go: a missing value breaks the
+            # line, which is what the `break_chart` setting fills the gaps of
+            # a date column for.
+            self._skip_null_rows("x")
             self.df = self.df.fillna("null")
         else:
             self.df = self.df.fillna(self.DEFAULT_NAN_FILL_VALUE)
@@ -397,7 +403,7 @@ class ObservablePieBuilder(ObservableBuilder):
 
         # Fill NA/NaN values in the incoming data/dataframe
         if self.settings.get("skip_null_values"):
-            self.df = self.df.dropna(subset=self.settings["values"])
+            self._skip_null_rows("names", "values")
         else:
             self.df = self.df.fillna(self.DEFAULT_NAN_FILL_VALUE)
 
@@ -490,9 +496,8 @@ class ObservableScatterBuilder(ObservableBuilder):
         """
         # Fill NA/NaN values in the incoming data/dataframe
         if self.settings.get("skip_null_values"):
-            self.df = self.df.dropna(
-                subset=[self.settings["x"], self.settings["y"]],
-            ).fillna("null")
+            self._skip_null_rows("x", "y")
+            self.df = self.df.fillna("null")
         else:
             self.df = self.df.fillna(self.DEFAULT_NAN_FILL_VALUE)
 

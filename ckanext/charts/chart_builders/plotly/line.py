@@ -171,6 +171,11 @@ class PlotlyLineBuilder(PlotlyBuilder):
             if self._is_column_datetime(x_col) and self.settings.get("break_chart"):
                 # Handle with missing dates
                 df = self._break_chart_by_missing_data(df)
+
+            # Only the rows without a category go: a missing value leaves a gap
+            # in the line, which is what the `break_chart` setting fills the
+            # gaps of a date column for.
+            df = self._drop_null_rows(df, "x")
         else:
             # Fill NaN/NULL values with 0
             df.fillna(self.DEFAULT_NAN_FILL_VALUE, inplace=True)

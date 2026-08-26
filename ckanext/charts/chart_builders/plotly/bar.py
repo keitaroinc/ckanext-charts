@@ -13,7 +13,7 @@ class PlotlyBarBuilder(PlotlyBuilder):
 
     def build_bar_chart(self) -> Any:
         if self.settings.get("skip_null_values"):
-            self.df = self.df[self.df[self.settings["y"]].notna()]
+            self._skip_null_rows("x", "y")
 
         # Create an instance of the scatter graph
         fig = px.bar(
@@ -78,7 +78,7 @@ class PlotlyHorizontalBarBuilder(PlotlyBuilder):
 
     def build_horizontal_bar_chart(self) -> Any:
         if self.settings.get("skip_null_values"):
-            self.df = self.df[self.df[self.settings["y"]].notna()]
+            self._skip_null_rows("x", "y")
 
         # Create an instance of the scatter graph
         fig = px.bar(

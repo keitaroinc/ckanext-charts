@@ -173,6 +173,74 @@ class BaseChartBuilder(ABC):
 
         return sorted(result)
 
+    def _plotted_columns(
+        self,
+        *setting_names: str,
+        dataframe: pd.DataFrame | None = None,
+    ) -> list[str]:
+        """Collect the columns of the dataframe the given settings point at.
+
+        A setting holds either a single column name or, for the y axis of a
+        chart with several series, a list of them, and it does not have to
+        name a column of the dataframe at all. The same column may also be
+        used twice, e.g. as both the categories and the values of a bar chart.
+
+        Args:
+            setting_names (str): names of the settings to read
+            dataframe (pd.DataFrame | None): dataframe to look the names up
+                in, the one of the chart by default
+
+        Returns:
+            Names of the columns, without repetitions
+        """
+        available = self.df.columns if dataframe is None else dataframe.columns
+        columns: list[str] = []
+
+        for setting_name in setting_names:
+            value = self.settings.get(setting_name)
+            names = value if isinstance(value, list) else [value]
+
+            for name in names:
+                if name in available and name not in columns:
+                    columns.append(name)
+
+        return columns
+
+    def _drop_null_rows(
+        self,
+        dataframe: pd.DataFrame,
+        *setting_names: str,
+    ) -> pd.DataFrame:
+        """Return the dataframe without the rows holding no value in any of
+        the plotted columns.
+
+        A row without a category has nothing to sit above on the category
+        axis, and one without a value has nothing to measure, so neither
+        belongs on the chart. Filling those in instead would gather them into
+        a mark of their own, labelled with the filler.
+
+        Args:
+            dataframe (pd.DataFrame): dataframe to drop the rows of
+            setting_names (str): names of the settings naming the columns
+
+        Returns:
+            Dataframe without those rows
+        """
+        columns = self._plotted_columns(*setting_names, dataframe=dataframe)
+
+        if not columns:
+            return dataframe
+
+        return dataframe.dropna(subset=columns)
+
+    def _skip_null_rows(self, *setting_names: str) -> None:
+        """Drop the rows holding no value in any of the plotted columns.
+
+        Args:
+            setting_names (str): names of the settings naming the columns
+        """
+        self.df = self._drop_null_rows(self.df, *setting_names)
+
     def _is_column_datetime(self, column_name: str) -> bool:
         """Check if string values of the certain column are convertible
         to datetime type.

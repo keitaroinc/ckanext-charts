@@ -158,6 +158,115 @@ class TestPlotlyBuilder:
         assert "data" in result
         assert "layout" in result
 
+    def test_bar_skips_null_categories(self):
+        """A row without a category has nothing to sit above on the category
+        axis, so skipping the null values has to drop it rather than draw a
+        bar of its own."""
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Bar",
+                    "engine": "plotly",
+                    "x": "name",
+                    "y": "amount",
+                    "skip_null_values": True,
+                },
+                pd.DataFrame({"name": ["Alice", None], "amount": [1.0, 2.0]}),
+            ),
+        )
+
+        assert list(result["data"][0]["x"]) == ["Alice"]
+
+    def test_bar_skips_null_values(self):
+        """A row without a value cannot be measured, so it goes as well."""
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Bar",
+                    "engine": "plotly",
+                    "x": "name",
+                    "y": "amount",
+                    "skip_null_values": True,
+                },
+                pd.DataFrame({"name": ["Alice", "Bob"], "amount": [1.0, None]}),
+            ),
+        )
+
+        assert list(result["data"][0]["x"]) == ["Alice"]
+
+    def test_horizontal_bar_skips_null_categories(self):
+        """A horizontal bar carries its categories on the y axis."""
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Horizontal Bar",
+                    "engine": "plotly",
+                    "x": "name",
+                    "y": "amount",
+                    "skip_null_values": True,
+                },
+                pd.DataFrame({"name": ["Alice", None], "amount": [1.0, 2.0]}),
+            ),
+        )
+
+        assert list(result["data"][0]["y"]) == ["Alice"]
+
+    def test_scatter_skips_null_categories(self):
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Scatter",
+                    "engine": "plotly",
+                    "x": "name",
+                    "y": "amount",
+                    "size": "amount",
+                    "skip_null_values": True,
+                },
+                pd.DataFrame({"name": ["Alice", None], "amount": [1.0, 2.0]}),
+            ),
+        )
+
+        assert list(result["data"][0]["x"]) == ["Alice"]
+
+    def test_scatter_keeps_zero_values(self):
+        """A zero is a value of its own, not a missing one."""
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Scatter",
+                    "engine": "plotly",
+                    "x": "name",
+                    "y": "amount",
+                    "size": "amount",
+                    "skip_null_values": True,
+                },
+                pd.DataFrame({"name": ["Alice", "Bob"], "amount": [1.0, 0.0]}),
+            ),
+        )
+
+        assert list(result["data"][0]["x"]) == ["Alice", "Bob"]
+
+    def test_line_skips_null_categories(self):
+        """A point without a category cannot be placed on the category axis,
+        while a missing value stays to leave a gap in the line."""
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Line",
+                    "engine": "plotly",
+                    "x": "name",
+                    "y": ["amount"],
+                    "skip_null_values": True,
+                },
+                pd.DataFrame(
+                    {"name": ["Alice", None, "Bob"], "amount": [1.0, 2.0, None]},
+                ),
+            ),
+        )
+
+        # `Bob` carries no value and stays behind to leave the gap
+        assert list(result["data"][0]["x"]) == ["Alice", "Bob"]
+
     def test_not_supported_chart_type(self, data_frame):
         with pytest.raises(
             exception.ChartTypeNotImplementedError,
@@ -319,6 +428,142 @@ class TestChartJsBuilder:
                 data_frame,
             )
 
+    def test_bar_skips_null_categories(self):
+        """A row without a category has nothing to label, so skipping the null
+        values has to drop it rather than leave an unlabelled bar."""
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Bar",
+                    "engine": "chartjs",
+                    "x": "name",
+                    "y": ["amount"],
+                    "skip_null_values": True,
+                },
+                pd.DataFrame({"name": ["Alice", None], "amount": [1.0, 2.0]}),
+            ),
+        )
+
+        assert result["data"]["labels"] == ["Alice"]
+
+    def test_bar_skips_null_values(self):
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Bar",
+                    "engine": "chartjs",
+                    "x": "name",
+                    "y": ["amount"],
+                    "skip_null_values": True,
+                },
+                pd.DataFrame({"name": ["Alice", "Bob"], "amount": [1.0, None]}),
+            ),
+        )
+
+        assert result["data"]["labels"] == ["Alice"]
+
+    def test_bar_with_several_y_keeps_rows_of_the_other_series(self):
+        """With several columns graphed a row missing one of the values still
+        carries the others, so only the rows without a category go."""
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Bar",
+                    "engine": "chartjs",
+                    "x": "name",
+                    "y": ["amount", "total"],
+                    "skip_null_values": True,
+                },
+                pd.DataFrame(
+                    {
+                        "name": ["Alice", "Bob", None],
+                        "amount": [1.0, None, 3.0],
+                        "total": [4.0, 5.0, 6.0],
+                    },
+                ),
+            ),
+        )
+
+        assert result["data"]["labels"] == ["Alice", "Bob"]
+
+    def test_horizontal_bar_skips_null_categories(self):
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Horizontal Bar",
+                    "engine": "chartjs",
+                    "x": "name",
+                    "y": ["amount"],
+                    "skip_null_values": True,
+                },
+                pd.DataFrame({"name": ["Alice", None], "amount": [1.0, 2.0]}),
+            ),
+        )
+
+        assert result["data"]["labels"] == ["Alice"]
+
+    def test_line_skips_null_categories(self):
+        """A point without a category cannot be placed on the category axis,
+        while a missing value stays to leave a gap in the line."""
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Line",
+                    "engine": "chartjs",
+                    "x": "name",
+                    "y": ["amount"],
+                    "skip_null_values": True,
+                },
+                pd.DataFrame(
+                    {"name": ["Alice", None, "Bob"], "amount": [1.0, 2.0, None]},
+                ),
+            ),
+        )
+
+        assert result["data"]["labels"] == ["Alice", "Bob"]
+        assert result["data"]["datasets"][0]["data"] == [1.0, "null"]
+
+    def test_scatter_skips_null_rows(self):
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Scatter",
+                    "engine": "chartjs",
+                    "x": "name",
+                    "y": "amount",
+                    "skip_null_values": True,
+                },
+                pd.DataFrame(
+                    {"name": ["Alice", None, "Bob"], "amount": [1.0, 2.0, None]},
+                ),
+            ),
+        )
+
+        assert [point["x"] for point in result["data"]["datasets"][0]["data"]] == [
+            "Alice",
+        ]
+
+    def test_bubble_skips_null_rows(self):
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Bubble",
+                    "engine": "chartjs",
+                    "x": "name",
+                    "y": "amount",
+                    "size": "amount",
+                    "skip_null_values": True,
+                },
+                pd.DataFrame(
+                    {"name": ["Alice", None, "Bob"], "amount": [1.0, 2.0, None]},
+                ),
+            ),
+        )
+
+        assert [point["x"] for point in result["data"]["datasets"][0]["data"]] == [
+            "Alice",
+        ]
+
     def test_not_supported_chart_type(self, data_frame):
         with pytest.raises(
             exception.ChartTypeNotImplementedError,
@@ -423,8 +668,8 @@ class TestObservableBuilder:
         assert "tickFormat" not in result["plot"]["x"]
 
     def test_horizontal_bar_with_skipped_null_categories(self):
-        """Skipping the null values leaves the category column holding the
-        string `null`, which the numeric format would print as `NaN`."""
+        """Skipping the null values drops the rows without a category, so the
+        category column keeps its numeric type and its verbatim format."""
         result = json.loads(
             utils.build_chart_for_data(
                 {
@@ -440,7 +685,103 @@ class TestObservableBuilder:
             ),
         )
 
-        assert "tickFormat" not in result["plot"]["y"]
+        assert [row["Year"] for row in result["data"]] == [2000.0]
+        assert result["plot"]["y"]["tickFormat"] == "d"
+
+    def test_bar_skips_null_categories(self):
+        """A row without a category has nothing to sit above on the category
+        axis, so skipping the null values has to drop it rather than gather
+        every such row into a bar labelled `null`."""
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Bar",
+                    "engine": "observable",
+                    "x": "name",
+                    "y": "amount",
+                    "skip_null_values": True,
+                },
+                pd.DataFrame(
+                    {"name": ["Alice", None], "amount": [1.0, 2.0]},
+                ),
+            ),
+        )
+
+        assert [row["name"] for row in result["data"]] == ["Alice"]
+
+    def test_bar_skips_null_values(self):
+        """A row without a value cannot be measured, so it goes as well."""
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Bar",
+                    "engine": "observable",
+                    "x": "name",
+                    "y": "amount",
+                    "skip_null_values": True,
+                },
+                pd.DataFrame(
+                    {"name": ["Alice", "Bob"], "amount": [1.0, None]},
+                ),
+            ),
+        )
+
+        assert [row["name"] for row in result["data"]] == ["Alice"]
+
+    def test_bar_keeps_null_rows_by_default(self):
+        """Without the setting the null values keep their filler, so that the
+        rows stay on the chart."""
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Bar",
+                    "engine": "observable",
+                    "x": "name",
+                    "y": "amount",
+                },
+                pd.DataFrame(
+                    {"name": ["Alice", None], "amount": [1.0, 2.0]},
+                ),
+            ),
+        )
+
+        assert [row["name"] for row in result["data"]] == ["Alice", 0]
+
+    def test_horizontal_bar_skips_null_values(self):
+        """A horizontal bar carries its values on the x axis."""
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Horizontal Bar",
+                    "engine": "observable",
+                    "x": "amount",
+                    "y": "name",
+                    "skip_null_values": True,
+                },
+                pd.DataFrame(
+                    {"name": ["Alice", "Bob"], "amount": [1.0, None]},
+                ),
+            ),
+        )
+
+        assert [row["name"] for row in result["data"]] == ["Alice"]
+
+    def test_bar_skips_null_rows_of_a_single_column(self):
+        """The same column may carry both the categories and the values."""
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Bar",
+                    "engine": "observable",
+                    "x": "amount",
+                    "y": "amount",
+                    "skip_null_values": True,
+                },
+                pd.DataFrame({"amount": [1.0, None]}),
+            ),
+        )
+
+        assert [row["amount"] for row in result["data"]] == [1.0]
 
     def test_build_line(self, data_frame):
         result = utils.build_chart_for_data(
@@ -547,6 +888,44 @@ class TestObservableBuilder:
         )
 
         assert result["plot"]["x"]["tickFormat"] == "d"
+
+    def test_line_skips_null_categories(self):
+        """A point without a category cannot be placed on the category axis."""
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Line",
+                    "engine": "observable",
+                    "x": "name",
+                    "y": ["amount"],
+                    "skip_null_values": True,
+                },
+                pd.DataFrame(
+                    {"name": ["Alice", None], "amount": [1.0, 2.0]},
+                ),
+            ),
+        )
+
+        assert [row["name"] for row in result["data"]] == ["Alice"]
+
+    def test_pie_skips_null_names(self):
+        """A wedge without a name has no label and no colour of its own."""
+        result = json.loads(
+            utils.build_chart_for_data(
+                {
+                    "type": "Pie",
+                    "engine": "observable",
+                    "names": "name",
+                    "values": "amount",
+                    "skip_null_values": True,
+                },
+                pd.DataFrame(
+                    {"name": ["Alice", None], "amount": [1.0, 2.0]},
+                ),
+            ),
+        )
+
+        assert [row["name"] for row in result["data"]] == ["Alice"]
 
     def test_not_supported_chart_type(self, data_frame):
         with pytest.raises(

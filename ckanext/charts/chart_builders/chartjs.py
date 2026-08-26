@@ -158,15 +158,21 @@ class ChartJSBarBuilder(ChartJsBuilder):
             },
         )
 
+        if self.settings.get("skip_null_values"):
+            # A bar has nothing to label without a category. A missing value
+            # only takes its row along when a single column is graphed: with
+            # several of them the row still carries the values of the others.
+            self._skip_null_rows("x")
+
+            if len(self.settings["y"]) == 1:
+                self._skip_null_rows("y")
+
         datasets = []
 
         for field in self.settings["y"]:
             dataset_data = []
 
             if len(self.settings["y"]) == 1:
-                if self.settings.get("skip_null_values"):
-                    self.df = self.df[self.df[field].notna()]
-
                 if self.settings.get("sort_x", False):
                     self.df.sort_values(by=self.settings["x"], inplace=True)
 
@@ -306,6 +312,10 @@ class ChartJSLineBuilder(ChartJsBuilder):
         if self.settings.get("skip_null_values"):
             if self.settings.get("break_chart") and len(self.settings["years"]) > 1:
                 df = self._break_chart_by_missing_data(df)
+
+            # Only the rows without a category go: a missing value leaves a gap
+            # in the line, which is what the `break_chart` setting is for.
+            df = self._drop_null_rows(df, "x")
             df = df.fillna("null")
         else:
             df = df.fillna(self.DEFAULT_NAN_FILL_VALUE)
@@ -540,6 +550,7 @@ class ChartJSScatterBuilder(ChartJsBuilder):
 
         # Fill NA/NaN values in the incoming data/dataframe
         if self.settings.get("skip_null_values"):
+            self._skip_null_rows("x", "y")
             self.df = self.df.fillna("null")
         else:
             self.df = self.df.fillna(self.DEFAULT_NAN_FILL_VALUE)
@@ -633,6 +644,11 @@ class ChartJSBubbleBuilder(ChartJSScatterBuilder):
             "data": {"datasets": []},
             "options": self.settings,
         }
+
+        # Drop the rows with nothing to plot before measuring the sizes, so
+        # that the biggest bubble is one of those actually drawn
+        if self.settings.get("skip_null_values"):
+            self._skip_null_rows("x", "y")
 
         size_max = self.df[self.settings["size"]].max()
 
