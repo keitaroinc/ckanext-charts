@@ -9,7 +9,7 @@ import pandas as pd
 import ckan.plugins.toolkit as tk
 from ckan import types
 
-from ckanext.charts import const, fetchers, utils
+from ckanext.charts import config, const, fetchers, utils
 from ckanext.charts.const import (
     FORM_GROUP_DATA,
     FORM_GROUP_FILTER,
@@ -52,6 +52,10 @@ class FilterDecoder:
 
 class BaseChartBuilder(ABC):
     DEFAULT_DATETIME_FORMAT = const.DEFAULT_DATETIME_FORMAT
+
+    #: Name the engine is registered under, used to match the
+    #: `engine:type` entries of `ckanext.charts.disabled_chart_types`.
+    engine_name = ""
 
     def __init__(
         self,
@@ -98,8 +102,22 @@ class BaseChartBuilder(ABC):
 
     @classmethod
     @abstractmethod
+    def _get_supported_forms(cls) -> list[type[BaseChartForm]]:
+        """Every chart type form the engine implements, unfiltered."""
+
+    @classmethod
     def get_supported_forms(cls) -> list[type[BaseChartForm]]:
-        pass
+        """Get the chart types the engine offers for building charts.
+
+        Types listed in the `ckanext.charts.disabled_chart_types` config option
+        are excluded, which removes them from the chart type dropdown and makes
+        charts saved with them unbuildable.
+        """
+        return [
+            form
+            for form in cls._get_supported_forms()
+            if not config.is_chart_type_disabled(cls.engine_name, form.name)
+        ]
 
     @classmethod
     def get_builder_for_type(cls, chart_type: str) -> type[BaseChartBuilder]:
@@ -111,10 +129,15 @@ class BaseChartBuilder(ABC):
     def get_form_for_type(cls, chart_type: str) -> Any:
         supported_forms = cls.get_supported_forms()
 
+        # every type of the engine has been disabled, so there is nothing
+        # to fall back to
+        if not supported_forms:
+            raise ChartTypeNotImplementedError("Chart type not implemented")
+
         if not chart_type:
             return supported_forms[0]
 
-        for form_builder in cls.get_supported_forms():
+        for form_builder in supported_forms:
             if chart_type == form_builder.name:
                 return form_builder
 

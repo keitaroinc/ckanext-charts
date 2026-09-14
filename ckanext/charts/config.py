@@ -10,6 +10,7 @@ CONF_REINIT_JS = "ckanext.charts.reinit_ckan_js_modules"
 CONF_ALLOW_ANON_CHART = "ckanext.charts.allow_anon_building_charts"
 CONF_MAX_FETCH_SIZE = "ckanext.charts.max_fetch_size"
 CONF_DISABLED_ENGINES = "ckanext.charts.disabled_engines"
+CONF_DISABLED_CHART_TYPES = "ckanext.charts.disabled_chart_types"
 
 
 def get_cache_strategy() -> str:
@@ -73,3 +74,39 @@ def get_disabled_engines() -> list[str]:
         engines = engines.split()
 
     return [engine.strip() for engine in engines if engine.strip()]
+
+
+def get_disabled_chart_types() -> list[str]:
+    """Get the list of chart types excluded from the chart views.
+
+    Entries are comma-separated, unlike the space-separated engine list,
+    because a chart type name may contain a space, e.g. `Horizontal Bar`.
+
+    An entry is either a bare type name, which disables the type in every
+    engine, or an `engine:type` pair, which disables it in that engine only.
+    """
+    chart_types = tk.config[CONF_DISABLED_CHART_TYPES]
+
+    if isinstance(chart_types, str):
+        chart_types = chart_types.split(",")
+
+    return [chart_type.strip() for chart_type in chart_types if chart_type.strip()]
+
+
+def is_chart_type_disabled(engine: str, chart_type: str) -> bool:
+    """Check if the chart type is disabled for the given engine.
+
+    A disabled type is not offered in the chart type dropdown and cannot be
+    used to build a chart. Matching ignores case on both the engine and the
+    type name.
+    """
+    for entry in get_disabled_chart_types():
+        disabled_engine, _, disabled_type = entry.rpartition(":")
+
+        if disabled_engine and disabled_engine.strip().lower() != engine.lower():
+            continue
+
+        if disabled_type.strip().lower() == chart_type.lower():
+            return True
+
+    return False

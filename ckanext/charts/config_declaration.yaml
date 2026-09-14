@@ -60,6 +60,19 @@ groups:
         default: []
         type: list
 
+      - key: ckanext.charts.disabled_chart_types
+        description: >-
+          Comma-separated list of chart types to exclude from the chart and
+          chart builder views, e.g. `plotly:Choropleth`. Commas are used
+          instead of spaces because a type name may contain one, such as
+          `Horizontal Bar`. An `engine:type` entry disables the type in that
+          engine only, while a bare type name disables it in every engine.
+          A disabled type disappears from the chart type dropdown, and views
+          already saved with it stop rendering until they are re-saved with an
+          enabled type.
+        editable: true
+        default: ""
+
       - key: ckanext.charts.max_fetch_size
         description: >-
           Maximum size, in megabytes, of a file that the URL and file system

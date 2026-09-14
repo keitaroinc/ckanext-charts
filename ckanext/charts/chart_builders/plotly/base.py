@@ -24,8 +24,10 @@ class PlotlyBuilder(BaseChartBuilder):
     DATETIME_TICKS_FORMAT = DATETIME_FORMAT_TICKS
     ISO_DATETIME_FORMAT = DATETIME_FORMAT_ISO8601
 
+    engine_name = "plotly"
+
     @classmethod
-    def get_supported_forms(cls) -> list[type[Any]]:
+    def _get_supported_forms(cls) -> list[type[Any]]:
         from ckanext.charts.chart_builders.plotly.bar import (  # noqa: PLC0415
             PlotlyBarForm,
             PlotlyHorizontalBarForm,
