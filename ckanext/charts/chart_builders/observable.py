@@ -26,8 +26,10 @@ class ObservableBuilder(BaseChartBuilder):
     DEFAULT_NAN_FILL_VALUE = DEFAULT_NAN_FILL_VALUE
     MAX_DOT_RADIUS = 30
 
+    engine_name = "observable"
+
     @classmethod
-    def get_supported_forms(cls) -> list[type[Any]]:
+    def _get_supported_forms(cls) -> list[type[Any]]:
         return [
             ObservableBarForm,
             ObservableHorizontalBarForm,

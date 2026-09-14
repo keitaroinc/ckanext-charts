@@ -33,8 +33,10 @@ class ChartJsBuilder(BaseChartBuilder):
     DEFAULT_NAN_FILL_VALUE = DEFAULT_NAN_FILL_VALUE
     MIN_BUBBLE_RADIUS = 5
 
+    engine_name = "chartjs"
+
     @classmethod
-    def get_supported_forms(cls) -> list[type[Any]]:
+    def _get_supported_forms(cls) -> list[type[Any]]:
         return [
             ChartJSBarForm,
             ChartJSHorizontalBarForm,
